@@ -15,17 +15,17 @@ Confluence-dumper is a Python project to export spaces, pages and attachments
 """
 
 from __future__ import print_function
-import sys
-import codecs
 
+import codecs
 import os
 import shutil
+import sys
 from lxml import html
 from lxml.etree import XMLSyntaxError
+from lxml.etree import ParserError
 
-import utils
 import settings
-
+import utils
 
 CONFLUENCE_DUMPER_VERSION = '1.0.0'
 TITLE_OUTPUT = 'C O N F L U E N C E   D U M P E R  %s' % CONFLUENCE_DUMPER_VERSION
@@ -119,9 +119,9 @@ def handle_html_references(html_content, page_duplicate_file_names, page_file_ma
     """
     try:
         html_tree = html.fromstring(html_content)
-    except XMLSyntaxError:
+    except (XMLSyntaxError, ParserError):
         print('%sWARNING: Could not parse HTML content of last page. Original content will be downloaded as it is.'
-              % ('\t'*(depth+1)))
+              % ('\t' * (depth + 1)))
         return html_content
 
     # Fix links to other Confluence pages
@@ -152,7 +152,7 @@ def handle_html_references(html_content, page_duplicate_file_names, page_file_ma
         file_url = link_element.attrib['href']
         file_name = derive_downloaded_file_name(file_url)
         relative_file_path = '%s/%s' % (settings.DOWNLOAD_SUB_FOLDER, file_name)
-        #link_element.attrib['href'] = utils.encode_url(relative_file_path)
+        # link_element.attrib['href'] = utils.encode_url(relative_file_path)
         link_element.attrib['href'] = relative_file_path
 
     # Fix file paths for img tags
@@ -190,7 +190,7 @@ def download_file(clean_url, download_folder, downloaded_file_name, depth=0, err
     # Download file if it does not exist yet
     if not os.path.exists(downloaded_file_path):
         absolute_download_url = '%s%s' % (settings.CONFLUENCE_BASE_URL, clean_url)
-        print('%sDOWNLOAD: %s' % ('\t'*(depth+1), downloaded_file_name))
+        print('%sDOWNLOAD: %s' % ('\t' * (depth + 1), downloaded_file_name))
         try:
             utils.http_download_binary_file(absolute_download_url, downloaded_file_path,
                                             auth=settings.HTTP_AUTHENTICATION, headers=settings.HTTP_CUSTOM_HEADERS,
@@ -199,9 +199,9 @@ def download_file(clean_url, download_folder, downloaded_file_name, depth=0, err
 
         except utils.ConfluenceException as e:
             if error_output:
-                error_print('%sERROR: %s' % ('\t'*(depth+2), e))
+                error_print('%sERROR: %s' % ('\t' * (depth + 2), e))
             else:
-                print('%sWARNING: %s' % ('\t'*(depth+2), e))
+                print('%sWARNING: %s' % ('\t' * (depth + 2), e))
 
     return downloaded_file_path
 
@@ -298,7 +298,7 @@ def fetch_page_recursively(page_id, folder_path, download_folder, html_template,
         page_content = response['body']['view']['value']
 
         page_title = response['title']
-        print('%sPAGE: %s (%s)' % ('\t'*(depth+1), page_title, page_id))
+        print('%sPAGE: %s (%s)' % ('\t' * (depth + 1), page_title, page_id))
 
         # Construct unique file name
         file_name = provide_unique_file_name(page_duplicate_file_names, page_file_matching, page_title,
@@ -321,7 +321,7 @@ def fetch_page_recursively(page_id, folder_path, download_folder, html_template,
                 attachment_id = attachment['id'][3:]
                 attachment_info = download_attachment(download_url, download_folder, attachment_id,
                                                       attachment_duplicate_file_names, attachment_file_matching,
-                                                      depth=depth+1)
+                                                      depth=depth + 1)
                 path_collection['child_attachments'].append(attachment_info)
 
             if 'next' in response['_links'].keys():
@@ -332,7 +332,7 @@ def fetch_page_recursively(page_id, folder_path, download_folder, html_template,
 
         # Export HTML file
         page_content = handle_html_references(page_content, page_duplicate_file_names, page_file_matching,
-                                              depth=depth+1)
+                                              depth=depth + 1)
         file_path = '%s/%s' % (folder_path, file_name)
         page_content += create_html_attachment_index(path_collection['child_attachments'])
         utils.write_html_2_file(file_path, page_title, page_content, html_template)
@@ -356,7 +356,7 @@ def fetch_page_recursively(page_id, folder_path, download_folder, html_template,
             counter += len(response['results'])
             for child_page in response['results']:
                 paths = fetch_page_recursively(child_page['id'], folder_path, download_folder, html_template,
-                                               depth=depth+1, page_duplicate_file_names=page_duplicate_file_names,
+                                               depth=depth + 1, page_duplicate_file_names=page_duplicate_file_names,
                                                page_file_matching=page_file_matching)
                 if paths:
                     path_collection['child_pages'].append(paths)
@@ -369,7 +369,7 @@ def fetch_page_recursively(page_id, folder_path, download_folder, html_template,
         return path_collection
 
     except utils.ConfluenceException as e:
-        error_print('%sERROR: %s' % ('\t'*(depth+1), e))
+        error_print('%sERROR: %s' % ('\t' * (depth + 1), e))
         return None
 
 
@@ -397,7 +397,7 @@ def create_html_index(index_content):
 def print_welcome_output():
     """ Displays software title and some license information """
     print('\n\t %s' % TITLE_OUTPUT)
-    print('\t %s\n' % ('='*len(TITLE_OUTPUT)))
+    print('\t %s\n' % ('=' * len(TITLE_OUTPUT)))
     print('... a Python project to export spaces, pages and attachments\n')
     print('Copyright (c) Siemens AG, 2016\n')
     print('Authors:')
@@ -435,7 +435,7 @@ def main():
         spaces_to_export = settings.SPACES_TO_EXPORT
     else:
         spaces_to_export = []
-        page_url = '%s/rest/api/space?limit=25' % settings.CONFLUENCE_BASE_URL
+        page_url = '%s/rest/api/space?limit=25&type=global' % settings.CONFLUENCE_BASE_URL
         while page_url:
             response = utils.http_get(page_url, auth=settings.HTTP_AUTHENTICATION, headers=settings.HTTP_CUSTOM_HEADERS,
                                       verify_peer_certificate=settings.VERIFY_PEER_CERTIFICATE,
@@ -449,6 +449,7 @@ def main():
             else:
                 page_url = None
 
+    print
     print('Exporting %d space(s): %s\n' % (len(spaces_to_export), ', '.join(spaces_to_export)))
 
     # Export spaces
@@ -474,6 +475,9 @@ def main():
             space_name = response['name']
 
             print('SPACE (%d/%d): %s (%s)' % (space_counter, len(spaces_to_export), space_name, space))
+
+            if 'homepage' not in response:
+                continue
 
             space_page_id = response['homepage']['id']
             path_collection = fetch_page_recursively(space_page_id, space_folder, download_folder, html_template)
